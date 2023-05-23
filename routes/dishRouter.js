@@ -8,6 +8,24 @@ const dishRouter = express.Router();
 
 dishRouter.use(bodyParser.json());
 
+dishRouter.route('/').get((req, res, next)=>{
+    Dishes.find()
+    .then((dishes)=>{
+        if (dishes != null) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.json(dishes);
+        }
+        else {
+            err = new Error('Dish ' + req.params.dishId + ' not found');
+            err.status = 404;
+            return next(err);
+        }
+    } ,(err) => next(err))
+    .catch((err) => next(err));
+})
+
+
 
 dishRouter.route('/:dishId/comments')
     .get((req, res, next) => {
