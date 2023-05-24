@@ -49,9 +49,9 @@ app.use(session({
 }));
 
 function auth(req, res, next) {
-  console.log(req.signedCookies);
+  console.log(req.session);
 
-  if(!req.signedCookies.user){
+  if(!req.session.user){
     var authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -67,7 +67,7 @@ function auth(req, res, next) {
     var password = auth[1];
   
     if (username === 'admin' && password === 'password') {
-      res.cookie('user', 'admin', {signed:true})
+      req.session.user='admin';
       next();
     }
     else {
@@ -78,7 +78,7 @@ function auth(req, res, next) {
     }
   }
   else{
-    if(req.signedCookies.user=== 'admin')
+    if(req.session.user=== 'admin')
     {
       next();
     }
