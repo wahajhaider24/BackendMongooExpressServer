@@ -5,15 +5,17 @@ const Schema = mongoose.Schema;
 const usersSchema = new Schema({
     email: {
         type: String,
-        required: true
+        required: true,
+        unique: true
     },
     password: {
         type: String,
         required: true
     },
-    roles: {
-        type: String,
-        required: true
+    admin: {
+        type: Boolean,
+        required: true,
+        default: false 
     }
 
 },
