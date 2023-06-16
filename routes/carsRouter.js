@@ -7,7 +7,7 @@ const carsRouter = express.Router();
 carsRouter.use(bodyParser.json());
 
 
-
+//general Route for all
 carsRouter.route('/')
 .get((req, res, next)=>{
     Cars.find({})
