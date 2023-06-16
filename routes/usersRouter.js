@@ -1,9 +1,11 @@
+const Joi = require('joi');
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose')
 const user= require('../models/users')
 var authenticate = require('../authenticate');
 const passport=require('passport');
+
 
 
 const userRouter = express.Router();
@@ -40,18 +42,16 @@ userRouter.route('/signin')
 
 
   userRouter.route('/logout')
-  .get(passport.authenticate('jwt', { session: false }),(req,res,next)=>
+  .get((req,res,next)=>
   {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: 'You are not logged in' });
-      } else {
-        res.setHeader('Content-Type', 'application/json');
-        res.json({ logout: 'Logout Successful' });
+     
+        
+        
         res.redirect('/');
       }
     
-    } catch (err) {
+     catch (err) {
       next(err); // Pass the error to the error-handling middleware
     }
     
