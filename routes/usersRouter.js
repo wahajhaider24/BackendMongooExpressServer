@@ -2,7 +2,9 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose')
 const user= require('../models/users')
+var authenticate = require('../authenticate');
 const passport=require('passport');
+
 
 const userRouter = express.Router();
 
@@ -17,11 +19,12 @@ userRouter.route('/signin')
     res.end('GET operation not supported on /api/signin');
     
   })
-  .post(passport.authenticate('local'),(req, res) => {
-    
+  .post(passport.authenticate('local', { session: false }),(req, res) => {
+        
+      var token = authenticate.getToken({_id: req.user._id});
         res.statusCode=200; 
         res.setHeader('Content-Type', 'application/json');
-        res.json({success:true, status:'Login Sucessful!'})
+        res.json({success:true, token: token , status:'Login Sucessful!'})
      
    })
   .put((req, res, next) => {
@@ -37,19 +40,21 @@ userRouter.route('/signin')
 
 
   userRouter.route('/logout')
-  .get((req,res)=>{
-    if(req.session)
-    {
-      req.session.destroy();
-      res.clearCookie('session-id');
-      res.redirect('/');
+  .get(passport.authenticate('jwt', { session: false }),(req,res,next)=>
+  {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'You are not logged in' });
+      } else {
+        res.setHeader('Content-Type', 'application/json');
+        res.json({ logout: 'Logout Successful' });
+        res.redirect('/');
+      }
+    
+    } catch (err) {
+      next(err); // Pass the error to the error-handling middleware
     }
-    else{
-      var err= new Error('You are not logged in! ');
-      err.status=403;
-      next(err);
-
-    }
+    
   })
 
   userRouter.route('/signup')
@@ -58,7 +63,7 @@ userRouter.route('/signin')
     res.end('GET operation not supported on /signup');
   })
   .post((req, res, next)=>{
-    user.register(new user({username: req.body.username, admin: req.body.admin}),req.body.password, 
+    user.register(new user({email: req.body.email, admin: req.body.admin, name: req.body.name, accountType: req.body.accountType}),req.body.password, 
     (err, user)=>{
       if(err)
       {

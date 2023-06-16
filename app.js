@@ -7,16 +7,17 @@ var session=require('express-session');
 var FileStore=require('session-file-store')(session);
 var passport=require('passport');
 var authenticate= require('./authenticate');
-
+var config= require('./config');
 const mongoose = require('mongoose');
 
-const Dishes = require('./models/dishes');
-const users = require('./models/users');
+const Cars= require('./models/cars');
+const Users= require('./models/users');
+const Category= require('./models/carsCatogries');
 
 
-const url = 'mongodb://localhost:27017/ropstamServer';
-
+const url = config.mongoUrl;
 const connect = mongoose.connect(url);
+
 
 connect.then((db) => {
 
@@ -24,10 +25,11 @@ connect.then((db) => {
 }, (err) => { console.log(err) });
 
 
-
+//router definitions
 var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
-var dishRouter = require('./routes/dishRouter');
+var usersRouter = require('./routes/usersRouter');
+var carsRouter = require('./routes/carsRouter');
+var categoryRouter = require('./routes/categoryRouter');
 
 var app = express(); 
 
@@ -38,48 +40,20 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-//app.use(cookieParser('yourmanwahaj'));
 
-//signed cookies require secret key
-
-app.use(session({
-  name: 'session-id',
-  secret: 'yourmanwahaj',
-  saveUninitialized: false , 
-  resave: false,
-  store: new FileStore()
-}));
 
 app.use(passport.initialize());
-app.use(passport.session());
+
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
-function auth(req, res, next) {
-  console.log(req.session);
+app.use('/cars', carsRouter);
+app.use('/category', categoryRouter);
 
-  if(!req.user){
-   
-
-  
-      var err = new Error("You are not authenticated!!!");
-      err.status = 403;
-      return next(err);
-    
-  }
-  else{
-   next();
-  }
-
-
- 
-}
-
-app.use(auth);
 app.use(express.static(path.join(__dirname, 'public')));
 
 
-app.use('/dishes', dishRouter);
+
 
 
 // catch 404 and forward to error handler
