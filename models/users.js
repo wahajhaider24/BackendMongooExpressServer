@@ -35,6 +35,10 @@ const userSchema = new Schema({
           required: true,
           default:"agency"
         },
+        otp: {
+          type: String,
+          default: null
+        },
         business: {type:businessSchema}
     
 

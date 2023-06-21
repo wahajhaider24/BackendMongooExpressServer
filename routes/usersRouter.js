@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const nodemailer = require('nodemailer');
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose')
@@ -6,6 +7,7 @@ const user= require('../models/users')
 var authenticate = require('../authenticate');
 const passport=require('passport');
 const randomstring = require('randomstring'); 
+require('dotenv').config(); 
 
 
 
@@ -21,8 +23,32 @@ const signupSchema = Joi.object({
   admin: Joi.boolean().required(),
   name: Joi.string().required(),
   accountType: Joi.string().required(),
-  password: Joi.string().required(),
 });
+
+const forgetPasswordSchema=  Joi.object({
+  email:Joi.string().email().required(),
+})
+
+const updatePasswordSchema = Joi.object({
+  otp: Joi.string()
+    .required()
+    .messages({
+      'string.base': 'OTP must be a string',
+      'string.empty': 'OTP is required',
+      'any.required': 'OTP is required',
+    }),
+
+  newPassword: Joi.string()
+    .required()
+    .messages({
+      'string.base': 'New password must be a string',
+      'string.empty': 'New password is required',
+      'any.required': 'New password is required',
+    }),
+
+    email: Joi.string().email().required(),
+});
+
 
 userRouter.route('/signin')
   .get((req, res, next) => {
@@ -87,20 +113,22 @@ userRouter.route('/signup')
             res.setHeader('Content-Type', 'application/json');
             res.json({ error: err });
           } else {
-            passport.authenticate('local')(req, res, () => {
+            
               const emailMessage = `Your randomly generated password: ${generatedPassword}`;
+              console.log(generatedPassword);
 
-              // Send the email using your email service or library
-              // For example, using Nodemailer library:
-              /*
-              const nodemailer = require('nodemailer');
+              
   
               const transporter = nodemailer.createTransport({
-                // Configure your email service settings here
+                service: 'gmail',
+                auth: {
+                  user: process.env.GMAIL_USER, // Use the environment variable for the Gmail email address
+                  pass: process.env.GMAIL_PASSWORD // Use the environment variable for the Gmail password
+                }
               });
   
               const mailOptions = {
-                from: 'your-email@example.com',
+                from: process.env.GMAIL_USER,
                 to: req.body.email,
                 subject: 'Registration Successful',
                 text: emailMessage
@@ -113,12 +141,12 @@ userRouter.route('/signup')
                   console.log('Email sent:', info.response);
                 }
               });
-              */
+              
   
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
               res.json({ status: 'Registration Successful!', success: true });
-            });
+           
           }
         }
       );
@@ -131,6 +159,126 @@ userRouter.route('/signup')
   .delete((req, res, next) => {
     res.statusCode = 403;
     res.end('DELETE operation not supported on /signup');
+  });
+
+
+
+  //FORGET PASSWORD API
+  userRouter.post('/forgetpassword', (req, res, next) => {
+    const { error } = forgetPasswordSchema.validate(req.body);
+    if (error) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.json({ error: error.details[0].message });
+    } 
+    else{
+
+    
+    const { email } = req.body;
+  
+    // Generate OTP
+    const otp = randomstring.generate(6); 
+  
+    user.findOne({ email }, (err, user) => {
+      if (err) {
+        res.statusCode = 500;
+        return res.json({ error: 'Internal server error' });
+      }
+  
+      if (!user) {
+        res.statusCode = 404;
+        return res.json({ error: 'User not found with the given email' });
+      }
+  
+      // Store the OTP in the user's document
+      user.otp = otp;
+      user.save((err) => {
+        if (err) {
+          res.statusCode = 500;
+          return res.json({ error: 'Internal server DB error' });
+        }
+  
+        // Send OTP to user's email
+        const emailMessage = `Your OTP for password reset: ${otp}`;
+  
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.GMAIL_USER, // Use the environment variable for the Gmail email address
+            pass: process.env.GMAIL_PASSWORD // Use the environment variable for the Gmail password
+          }
+        });
+  
+        const mailOptions = {
+          from: process.env.GMAIL_USER,
+          to: email,
+          subject: 'Password Reset OTP',
+          text: emailMessage
+        };
+  
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.log('Error sending email:', error);
+            res.statusCode = 500;
+            return res.json({ error: 'Failed to send email' });
+          }
+  
+          console.log('Email sent:', info.response);
+          res.statusCode = 200;
+          res.json({ message: 'OTP sent successfully' });
+        });
+      });
+    });
+  }
+  })
+  .put('/updatepassword', (req, res, next) => {
+    const { error } = updatePasswordSchema.validate(req.body);
+    if (error) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.json({ error: error.details[0].message });
+    } else {
+      const { email, otp, newPassword } = req.body;
+  
+      user.findOne({ email }, (err, user) => {
+        if (err) {
+          res.statusCode = 500;
+          return res.json({ error: 'Internal server error' });
+        }
+  
+        if (!user) {
+          res.statusCode = 404;
+          return res.json({ error: 'User not found' });
+        }
+  
+        // Check if the provided OTP matches the stored OTP
+        if (user.otp !== otp) {
+          res.statusCode = 400;
+          return res.json({ error: 'Invalid OTP' });
+        }
+  
+        // Update the user's password
+         user.setPassword(newPassword, (err) => {
+          if (err) {
+            res.statusCode = 500;
+            return res.json({ error: 'Internal server error' });
+          }
+  
+          // Save the updated user
+          user.save((err) => {
+            if (err) {
+              res.statusCode = 500;
+              return res.json({ error: 'Internal server DB error' });
+            }
+  
+            res.statusCode = 200;
+            res.json({ message: 'Password updated successfully' });
+          });
+        });
+
+          
+      });
+    }
   });
 
 module.exports = userRouter;
